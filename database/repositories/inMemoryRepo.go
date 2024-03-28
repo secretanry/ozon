@@ -3,8 +3,8 @@ package repositories
 import "ozontest/database/models"
 
 type InMemoryRepo struct {
-	stf map[string]string
-	fts map[string]string
+	Stf map[string]string
+	Fts map[string]string
 }
 
 func NewLinkMemRepo() *InMemoryRepo {
@@ -12,17 +12,17 @@ func NewLinkMemRepo() *InMemoryRepo {
 }
 
 func (repo *InMemoryRepo) AddLink(links *models.Links) error {
-	repo.stf[links.ShortLink] = links.FullLink
-	repo.fts[links.FullLink] = links.ShortLink
+	repo.Stf[links.ShortLink] = links.FullLink
+	repo.Fts[links.FullLink] = links.ShortLink
 	return nil
 }
 func (repo *InMemoryRepo) ContainsShortLink(shortLink string) bool {
-	_, res := repo.stf[shortLink]
+	_, res := repo.Stf[shortLink]
 	return res
 }
 
 func (repo *InMemoryRepo) GetShortByFull(fullLink string) string {
-	val, is := repo.fts[fullLink]
+	val, is := repo.Fts[fullLink]
 	if is {
 		return val
 	} else {
@@ -30,7 +30,7 @@ func (repo *InMemoryRepo) GetShortByFull(fullLink string) string {
 	}
 }
 func (repo *InMemoryRepo) GetFullByShort(shortLink string) string {
-	val, is := repo.stf[shortLink]
+	val, is := repo.Stf[shortLink]
 	if is {
 		return val
 	} else {

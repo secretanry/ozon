@@ -36,7 +36,7 @@ func main() {
 	logrus.SetOutput(logger.Writer())
 	var linkRepo repositories.Repo
 	if os.Getenv("STORAGE") == "DB" {
-		db := database.Connect()
+		db := database.Connect(logger)
 		err = migrations.EnableLinkAutoMigration(db)
 		if err != nil {
 			logger.Infoln("Cannot enable auto-migration")
@@ -44,7 +44,7 @@ func main() {
 			return
 		}
 		linkRepo = repositories.NewLinkDBRepo(db)
-		defer database.Disconnect(db)
+		defer database.Disconnect(db, logger)
 	} else {
 		linkRepo = repositories.NewLinkMemRepo()
 	}

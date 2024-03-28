@@ -1,28 +1,23 @@
-# Start from the official Go image to have a proper environment.
-FROM golang:1.22 AS builder
+FROM golang:latest
 
-# Set the Current Working Directory inside the container
+# Устанавливаем переменную окружения GO111MODULE в значение on,
+# чтобы включить поддержку модулей Go.
+ENV GO111MODULE=on
+
+# Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
-# Copy go mod and sum files
-COPY go.mod go.sum ./
-
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
+# Копируем go.mod и go.sum в рабочую директорию.
+# Запускаем go mod download, чтобы скачать зависимости модулей Go.
+COPY go.mod ./
+COPY go.sum ./
 RUN go mod download
 
-# Copy the source from the current directory to the Working Directory inside the container
-COPY . /app
+# Копируем все файлы из текущей директории внутрь контейнера.
+COPY .. .
 
-# Build the Go app
-RUN go build -o -v main .
+# Собираем приложение.
+RUN go build -o main ./cmd/main.go
 
-# Start a new stage from scratch
-FROM alpine:latest
-
-WORKDIR /root/
-
-# Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/main .
-
-# Command to run the executable
+# Команда для запуска приложения при запуске контейнера.
 CMD ["./main"]

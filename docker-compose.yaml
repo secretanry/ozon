@@ -5,10 +5,10 @@ services:
     build: .
     ports:
       - "8080:8080"
-    depends_on:
-      - db
     environment:
       DB_CONNECTION_STRING: "postgres://postgres:postgres@db:5432/postgres"
+    depends_on:
+      - db
   db:
     container_name: postgres-db
     image: postgres:13
@@ -20,6 +20,18 @@ services:
       POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  test:
+    container_name: go-app-test
+    build: .
+    depends_on:
+      - db
+    env_file:
+      - tests/.env
+    command: go test ./...
+    volumes:
+      - .:/app
+
 
 volumes:
   postgres_data:
