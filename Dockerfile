@@ -1,20 +1,23 @@
-FROM golang:1.22 as builder
+# Start from the official Go image
+FROM golang:1.22
 
+# Set the current working directory inside the container
 WORKDIR /app
 
+# Copy go.mod and go.sum files to the working directory
 COPY go.mod go.sum ./
+
+# Download dependencies
 RUN go mod download
 
+# Copy the entire project directory into the working directory
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o server cmd/main.go
+# Build the Go application
+RUN go build -o main ./cmd/main.go
 
-FROM alpine:latest
+# Expose the port on which the gRPC server will run
+EXPOSE 50051
 
-RUN apk --no-cache add ca-certificates
-
-WORKDIR /root/
-
-COPY --from=builder /app/server .
-
-CMD ["./server"]
+# Command to run the executable
+CMD ["./main"]

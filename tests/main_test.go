@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"log"
+	"ozontest/api/handlers"
 	"ozontest/database"
 	"ozontest/database/models"
 	"ozontest/database/repositories"
 	"testing"
+	"time"
 )
 
 func TestConnectDisconnect(t *testing.T) {
@@ -69,4 +74,23 @@ func TestMemRepoFunctions(t *testing.T) {
 	if test.GetShortByFull("ab") != "ahdgbcvrty" || test.GetFullByShort("ahdgbcvrty") != "ab" {
 		t.Error("Error in Mem function")
 	}
+}
+
+func TestClient(t *testing.T) {
+	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	c := handlers.NewLinksServiceClient(conn)
+
+	// Contact the server and print out its response.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	r, err := c.PostFullLink(ctx, &handlers.LongLinkRequest{LongLink: "ftsgueyjadhskj"})
+	if err != nil {
+		logrus.Infof("could not greet: %v", err)
+	}
+	logrus.Infof("Response: %s", r.String())
 }
