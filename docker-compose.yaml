@@ -4,7 +4,7 @@ services:
     container_name: go-app
     build: .
     ports:
-      - "8080:8080"
+      - "50051:50051"
     environment:
       DB_CONNECTION_STRING: "postgres://postgres:postgres@db:5432/postgres"
     depends_on:

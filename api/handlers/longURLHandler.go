@@ -1,31 +1,12 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 	"github.com/sirupsen/logrus"
 	"math/rand"
-	"net/http"
-	"ozontest/api/payload/requests"
-	"ozontest/api/payload/responses"
 	"ozontest/database/models"
 	"ozontest/database/repositories"
 )
-
-func writeErrorToResponse(w http.ResponseWriter, code int, message string, logger *logrus.Logger) {
-	w.WriteHeader(code)
-	jsonResponse, err := json.Marshal(&responses.RespModel{Message: message})
-	if err != nil {
-		logger.Infoln("Cannot marshall json")
-		logger.Debugln(err)
-		return
-	}
-	_, err = w.Write(jsonResponse)
-	if err != nil {
-		logger.Infoln("Cannot send a response")
-		logger.Debugln(err)
-		return
-	}
-}
 
 func generateShortLink() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
@@ -36,66 +17,60 @@ func generateShortLink() string {
 	return string(b)
 }
 
-func LongHandler(w http.ResponseWriter, r *http.Request, linkRepo repositories.Repo, logger *logrus.Logger) {
-	var request requests.LongLinkRequest
-	err := json.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		logger.Infoln("Request body is incorrect")
-		logger.Debugln(err)
-		writeErrorToResponse(w, 400, "Request body is incorrect", logger)
-		return
-	}
-	link := request.Link
-	logger.Infof("Received: %s", link)
-	fromDb := linkRepo.GetShortByFull(link)
+type LinksServer struct {
+	UnimplementedLinksServiceServer
+	logger *logrus.Logger
+	repo   repositories.Repo
+}
+
+func NewLinksServer(logger *logrus.Logger, repo repositories.Repo) *LinksServer {
+	return &LinksServer{logger: logger, repo: repo}
+}
+
+func (s *LinksServer) PostFullLink(ctx context.Context, req *LongLinkRequest) (*PostFullLinkResponse, error) {
+	link := req.LongLink
+
+	s.logger.Infof("Received: %s", link)
+	fromDb := s.repo.GetShortByFull(link)
 	if fromDb != "" {
-		w.WriteHeader(200)
-		jsonResponse, err := json.Marshal(&responses.ShortLinkResp{ShortLink: fromDb})
-		if err != nil {
-			logger.Infoln("Cannot marshall json")
-			logger.Debugln(err)
-			return
-		}
-		_, err = w.Write(jsonResponse)
-		if err != nil {
-			logger.Infoln("Cannot send a response")
-			logger.Debugln(err)
-			return
-		}
-		return
+		return &PostFullLinkResponse{
+			Result: &PostFullLinkResponse_ShortLink{
+				ShortLink: &ShortLinkResponse{ShortLink: fromDb},
+			},
+		}, nil
 	}
+
 	var shortLink string
 	c := 0
 	for shortLink == "" {
 		temp := generateShortLink()
-		if !linkRepo.ContainsShortLink(temp) {
+		if !s.repo.ContainsShortLink(temp) {
 			shortLink = temp
 		}
 		if c == 1000 {
-			logger.Infoln("Request body is incorrect")
-			logger.Debugln("Request body is incorrect")
-			writeErrorToResponse(w, 500, "Cannot generate short link, please try again later", logger)
-			return
+			s.logger.Infoln("Request body is incorrect")
+			s.logger.Debugln("Request body is incorrect")
+			return &PostFullLinkResponse{
+				Result: &PostFullLinkResponse_Message{
+					Message: &MessageResponse{Message: "Cannot generate short link, please try again later"},
+				},
+			}, nil
 		}
 		c++
 	}
-	err = linkRepo.AddLink(&models.Links{ShortLink: shortLink, FullLink: link})
+	err := s.repo.AddLink(&models.Links{ShortLink: shortLink, FullLink: link})
 	if err != nil {
-		logger.Infoln("Cannot add new link")
-		logger.Debugln(err)
-		return
+		s.logger.Infoln("Cannot add new link")
+		s.logger.Debugln(err)
+		return &PostFullLinkResponse{
+			Result: &PostFullLinkResponse_Message{
+				Message: &MessageResponse{Message: "Cannot add new link"},
+			},
+		}, nil
 	}
-	w.WriteHeader(200)
-	jsonResponse, err := json.Marshal(&responses.ShortLinkResp{ShortLink: shortLink})
-	if err != nil {
-		logger.Infoln("Cannot marshall json")
-		logger.Debugln(err)
-		return
-	}
-	_, err = w.Write(jsonResponse)
-	if err != nil {
-		logger.Infoln("Cannot send a response")
-		logger.Debugln(err)
-		return
-	}
+	return &PostFullLinkResponse{
+		Result: &PostFullLinkResponse_ShortLink{
+			ShortLink: &ShortLinkResponse{ShortLink: shortLink},
+		},
+	}, nil
 }

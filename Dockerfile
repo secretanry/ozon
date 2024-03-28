@@ -1,23 +1,20 @@
-FROM golang:latest
+FROM golang:1.22 as builder
 
-# Устанавливаем переменную окружения GO111MODULE в значение on,
-# чтобы включить поддержку модулей Go.
-ENV GO111MODULE=on
-
-# Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app
 
-# Копируем go.mod и go.sum в рабочую директорию.
-# Запускаем go mod download, чтобы скачать зависимости модулей Go.
-COPY go.mod ./
-COPY go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Копируем все файлы из текущей директории внутрь контейнера.
-COPY .. .
+COPY . .
 
-# Собираем приложение.
-RUN go build -o main ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o server cmd/main.go
 
-# Команда для запуска приложения при запуске контейнера.
-CMD ["./main"]
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+
+COPY --from=builder /app/server .
+
+CMD ["./server"]

@@ -1,15 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"log"
-	"net/http"
+	"net"
 	"os"
 	"ozontest/api/handlers"
-	"ozontest/api/middleware"
-	"ozontest/api/payload/responses"
 	"ozontest/database"
 	"ozontest/database/migrations"
 	"ozontest/database/repositories"
@@ -48,29 +46,17 @@ func main() {
 	} else {
 		linkRepo = repositories.NewLinkMemRepo()
 	}
-
-	http.HandleFunc("/link", middleware.LoggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			handlers.LongHandler(w, r, linkRepo, logger)
-		case http.MethodGet:
-			handlers.ShortLinkHandler(w, r, linkRepo, logger)
-		default:
-			logrus.Infoln("Method not allowed")
-			w.WriteHeader(405)
-			jsonResponse, err := json.Marshal(&responses.RespModel{Message: "Method not allowed"})
-			if err != nil {
-				logrus.Infoln("Cannot marshall json")
-				logrus.Debugln(err)
-				return
-			}
-			_, err = w.Write(jsonResponse)
-			if err != nil {
-				logrus.Infoln("Cannot send a response")
-				logrus.Debugln(err)
-				return
-			}
-		}
-	}, logger))
-	logrus.Infoln(http.ListenAndServe(":8080", nil))
+	linksServer := handlers.NewLinksServer(logger, linkRepo)
+	lis, err := net.Listen("tcp", "50051")
+	if err != nil {
+		logger.Infoln("Failed to listen")
+		logger.Debugln(err)
+	}
+	grpcServer := grpc.NewServer()
+	handlers.RegisterLinksServiceServer(grpcServer, linksServer)
+	if err := grpcServer.Serve(lis); err != nil {
+		logger.Infoln("failed to serve")
+		logger.Debugln(err)
+		return
+	}
 }
